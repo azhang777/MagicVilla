@@ -1,3 +1,5 @@
+using MagicVilla_VillaAPI.Data;
+using MagicVilla_VillaAPI.Models.Dto;
 using Microsoft.AspNetCore.Mvc;
 
 //delete this if not needed
@@ -30,5 +32,6 @@ namespace MagicVilla_VillaAPI.Controllers
             })
             .ToArray();
         }
+
     }
 }
