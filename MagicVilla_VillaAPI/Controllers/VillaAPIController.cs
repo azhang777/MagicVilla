@@ -14,17 +14,17 @@ namespace MagicVilla_VillaAPI.Controllers
 
     public class VillaAPIController : ControllerBase
     {
-        private readonly ILogging _logger;
-        public VillaAPIController(ILogging logger)
+        private readonly ApplicationDbContext _db;
+
+        public VillaAPIController(ApplicationDbContext db)
         {
-            _logger = logger;
+            _db = db;
         }
 
         [HttpGet]
         public ActionResult<IEnumerable<VillaDTO>> GetVillas()
         {
-            _logger.Log("Getting all villas","");
-            return Ok(VillaStore.villaList);
+            return Ok(_db.Villas); //just retrieve everything from Villas table
         }
 
         [HttpGet("id", Name ="GetVilla")] //if request verb is not defined, it defaults to HttpGet
@@ -35,17 +35,16 @@ namespace MagicVilla_VillaAPI.Controllers
         {
             if (id == 0)
             {
-                _logger.Log("Get villa error with Id " + id, "error");
                 return BadRequest();
             }
 
-            var villa = VillaStore.villaList.FirstOrDefault(e => e.Id == id); //default value right now is null.
+            var villa = _db.Villas.FirstOrDefault(e => e.Id == id); //default value right now is null.
 
             if (villa == null)
             {
                 return NotFound();
             }
-            _logger.Log($"Getting villa {villa.Id}", "");
+            
             return Ok(villa);
         }
 
@@ -62,7 +61,7 @@ namespace MagicVilla_VillaAPI.Controllers
             //}
 
 
-            if (VillaStore.villaList.FirstOrDefault(e => e.Name.ToLower() == villaDTO.Name.ToLower()) != null)
+            if (_db.Villas.FirstOrDefault(e => e.Name.ToLower() == villaDTO.Name.ToLower()) != null)
             {
                 ModelState.AddModelError("DuplicateExceptionError", "Villa already Exists");
                 return BadRequest(ModelState);
@@ -76,9 +75,18 @@ namespace MagicVilla_VillaAPI.Controllers
             {
                 return StatusCode(StatusCodes.Status500InternalServerError);
             }
-
-            villaDTO.Id = VillaStore.villaList.OrderByDescending(e => e.Id).FirstOrDefault().Id + 1;
-            VillaStore.villaList.Add(villaDTO);
+            Villa model = new()
+            {
+                Name = villaDTO.Name,
+                Details = villaDTO.Details,
+                Rate = villaDTO.Rate,
+                Occupancy = villaDTO.Occupancy,
+                SqFt = villaDTO.SqFt,
+                ImageUrl = villaDTO.ImageUrl,
+                Amenity = villaDTO.Amenity,
+            };
+            _db.Villas.Add(model); //doesn't save, just tracks it. Like how we need to do git add and git commit, we need to do:
+            _db.SaveChanges();
 
             return CreatedAtRoute("GetVilla", new { id = villaDTO.Id }, villaDTO);
         }
@@ -93,13 +101,14 @@ namespace MagicVilla_VillaAPI.Controllers
             {
                 return BadRequest();
             }
-            var villa = VillaStore.villaList.FirstOrDefault(e => e.Id == id);
+            var villa = _db.Villas.FirstOrDefault(e => e.Id == id);
             if (villa == null)
             {
                 return NotFound();
             }
 
-            VillaStore.villaList.Remove(villa);
+            _db.Villas.Remove(villa); //again, tracks it, we must save changes.
+            _db.SaveChanges();
             return NoContent();
         }
 
@@ -108,20 +117,30 @@ namespace MagicVilla_VillaAPI.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public ActionResult<VillaDTO> updateVilla(int id, [FromBody] VillaDTO villaDTO)
         {
-            if (id == 0 || id != villaDTO.Id)
+            if (villaDTO == null || id != villaDTO.Id)
             {
                 return BadRequest();
             }
-            var villa = VillaStore.villaList.FirstOrDefault(e => e.Id == id);
-            if (villa == null)
-            {
-                return NotFound();
-            }
+            //var villa = _db.Villas.FirstOrDefault(e => e.Id == id);
+            //villa.Name = villaDTO.Name;
+            //villa.Occupancy = villaDTO.Occupancy;
+            //villa.SqFt = villaDTO.SqFt;
 
-            villa.Name = villaDTO.Name;
-            villa.Occupancy = villaDTO.Occupancy;
-            villa.SqFt = villaDTO.SqFt;
+            Villa model = new()
+            {
+                Name = villaDTO.Name,
+                Details = villaDTO.Details,
+                Rate = villaDTO.Rate,
+                Occupancy = villaDTO.Occupancy,
+                SqFt = villaDTO.SqFt,
+                ImageUrl = villaDTO.ImageUrl,
+                Amenity = villaDTO.Amenity,
+            };
+
+            _db.Villas.Update(model); //EFC is super smart, it knows which object/model you want to update within the table and executes the task.
+            _db.SaveChanges(); //still need to manually save changes...
             return Ok(villaDTO);
         }
     }
 }
+ 
