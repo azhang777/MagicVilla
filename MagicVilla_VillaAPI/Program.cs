@@ -14,6 +14,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(option =>
     option.UseSqlServer(builder.Configuration.GetConnectionString("DefaultSQLConnection"));
 });
 builder.Services.AddScoped<IVillaRepository, VillaRepository>();
+builder.Services.AddScoped<IVillaNumberRepository, VillaNumberRepository>();
 builder.Services.AddControllers(option => {
     option.ReturnHttpNotAcceptable = false; //content negotiation, allows you to control how the application handles requests. Application will return 406 not acceptable response when a client requests a format that isn't available ie text/plain
 }).AddXmlDataContractSerializerFormatters();
