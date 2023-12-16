@@ -1,9 +1,12 @@
 ﻿using AutoMapper;
+using Azure;
 using MagicVilla_VillaAPI.Data;
 using MagicVilla_VillaAPI.Logging;
 using MagicVilla_VillaAPI.Models;
 using MagicVilla_VillaAPI.Models.Dto;
+using MagicVilla_VillaAPI.Repository.IRepository;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,11 +18,12 @@ namespace MagicVilla_VillaAPI.Controllers
 
     public class VillaAPIController : ControllerBase
     {
-        private readonly ApplicationDbContext _db;
+
+        private readonly IVillaRepository _dbVilla;
         private readonly IMapper _mapper;
-        public VillaAPIController(ApplicationDbContext db, IMapper mapper)
+        public VillaAPIController(IVillaRepository dbVilla, IMapper mapper)
         {
-            _db = db;
+            _dbVilla = dbVilla;
             _mapper = mapper;
         }
 
@@ -27,7 +31,7 @@ namespace MagicVilla_VillaAPI.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<ActionResult<IEnumerable<VillaDTO>>> GetVillas()
         {
-            IEnumerable<Villa> villaList = await _db.Villas.ToListAsync(); //grab villas, then convert to VillaDTO to return appropriate type.
+            IEnumerable<Villa> villaList = await _dbVilla.GetAllAsync(); //grab villas, then convert to VillaDTO to return appropriate type.
             return Ok(_mapper.Map<List<VillaDTO>>(villaList)); //just retrieve everything from Villas table
         }
 
@@ -42,7 +46,7 @@ namespace MagicVilla_VillaAPI.Controllers
                 return BadRequest();
             }
 
-            var villa = await _db.Villas.FirstOrDefaultAsync(e => e.Id == id); //default value right now is null.
+            var villa = await _dbVilla.GetAsync(u => u.Id == id); //default value right now is null.
 
             if (villa == null)
             {
@@ -65,7 +69,7 @@ namespace MagicVilla_VillaAPI.Controllers
             //}
 
 
-            if (await _db.Villas.FirstOrDefaultAsync(e => e.Name.ToLower() == createdDTO.Name.ToLower()) != null)
+            if (await _dbVilla.GetAsync(e => e.Name.ToLower() == createdDTO.Name.ToLower()) != null)
             {
                 ModelState.AddModelError("DuplicateExceptionError", "Villa already Exists");
                 return BadRequest(ModelState);
@@ -87,9 +91,9 @@ namespace MagicVilla_VillaAPI.Controllers
             //    ImageUrl = createdDTO.ImageUrl,
             //    Amenity = createdDTO.Amenity,
             //};
-            
-            await _db.Villas.AddAsync(model); //doesn't save, just tracks it. Like how we need to do git add and git commit, we need to do:
-            await _db.SaveChangesAsync();
+            await _dbVilla.CreateAsync(model);
+            //await _db.Villas.AddAsync(model); //doesn't save, just tracks it. Like how we need to do git add and git commit, we need to do:
+            //await _db.SaveChangesAsync();
 
             return CreatedAtRoute("GetVilla", new { id = model.Id }, model);
         }
@@ -104,14 +108,15 @@ namespace MagicVilla_VillaAPI.Controllers
             {
                 return BadRequest();
             }
-            var villa = await _db.Villas.FirstOrDefaultAsync(e => e.Id == id);
+            var villa = await _dbVilla.GetAsync(e => e.Id == id);
             if (villa == null)
             {
                 return NotFound();
             }
 
-            _db.Villas.Remove(villa); //again, tracks it, we must save changes.
-            await _db.SaveChangesAsync();
+            _dbVilla.RemoveAsync(villa);
+            //_db.Villas.Remove(villa); //again, tracks it, we must save changes.
+            //await _db.SaveChangesAsync();
             
             return NoContent();
         }
@@ -141,12 +146,39 @@ namespace MagicVilla_VillaAPI.Controllers
             //    ImageUrl = updateDTO.ImageUrl,
             //    Amenity = updateDTO.Amenity,
             //};
+            await _dbVilla.UpdateAsync(model);
+            //_db.Villas.Update(model); //EFC is super smart, it knows which object/model you want to update within the table and executes the task.
+            //await _db.SaveChangesAsync(); //still need to manually save changes...
 
-            _db.Villas.Update(model); //EFC is super smart, it knows which object/model you want to update within the table and executes the task.
-            await _db.SaveChangesAsync(); //still need to manually save changes...
-            
             return Ok(updateDTO);
         }
+
+        //public async Task<IActionResult> UpdatePartialVilla(int id, JsonPatchDocument<VillaDTO> patchDTO)
+        //{
+        //    if (patchDTO == null || id == 0)
+        //    {
+        //        return BadRequest();
+        //    }
+            
+        //    var villa = await _dbVilla.GetAsync(e => e.Id == id, tracked: false);
+        //    VillaDTO villaDTO = _mapper.Map<VillaDTO>(villa);
+
+        //    patchDTO.ApplyTo(villaDTO, ModelState);
+        //    if (villa == null)
+        //    {
+        //        return BadRequest();
+        //    }
+
+        //    Villa model = _mapper.Map<Villa>(villaDTO);
+        //    await _dbVilla.UpdateAsync(model);
+
+        //    if (!ModelState.IsValid)
+        //    {
+        //        return BadRequest(ModelState);
+        //    }
+
+        //    return NoContent();
+        //}
     }
 }
  
